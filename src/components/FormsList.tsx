@@ -57,7 +57,7 @@ export default function FormsList({ onSelectForm, onDeleteForm, refreshTrigger }
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="animate-pulse space-y-3">
           <div className="h-4 bg-gray-200 rounded w-1/4"></div>
           <div className="h-12 bg-gray-200 rounded"></div>
@@ -68,10 +68,10 @@ export default function FormsList({ onSelectForm, onDeleteForm, refreshTrigger }
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">Saved Forms</h3>
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Saved Forms</h3>
       {forms.length === 0 ? (
-        <p className="text-sm text-gray-500 text-center py-8">
+        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 text-center py-8">
           No forms saved yet. Create your first form!
         </p>
       ) : (
@@ -80,22 +80,22 @@ export default function FormsList({ onSelectForm, onDeleteForm, refreshTrigger }
             <div
               key={form.id}
               onClick={() => onSelectForm(form)}
-              className="group flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 hover:border-gray-300 cursor-pointer transition-all"
+              className="group flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:bg-gray-600 hover:border-gray-300 cursor-pointer transition-all"
             >
-              <FileText className="w-5 h-5 text-gray-600 mt-0.5" />
+              <FileText className="w-5 h-5 text-gray-600 dark:text-gray-400 dark:text-gray-500 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-gray-900 truncate">{form.name || 'Untitled Form'}</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white truncate">{form.name || 'Untitled Form'}</h4>
                 {form.description && (
-                  <p className="text-xs text-gray-500 truncate mt-0.5">{form.description}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 truncate mt-0.5">{form.description}</p>
                 )}
-                <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                <div className="flex items-center gap-1 mt-1 text-xs text-gray-400 dark:text-gray-500">
                   <Calendar className="w-3 h-3" />
                   <span>{formatDate(form.updated_at)}</span>
                 </div>
               </div>
               <button
                 onClick={(e) => handleDelete(e, form.id)}
-                className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-600 transition-all"
+                className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 transition-all"
               >
                 <Trash2 className="w-4 h-4" />
               </button>

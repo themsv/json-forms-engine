@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { Save, Plus, Eye, Code } from 'lucide-react';
+import { Save, Plus, Eye, Code, Sun, Moon } from 'lucide-react';
 import FieldPalette from './FieldPalette';
 import FormCanvas from './FormCanvas';
 import FieldSettings from './FieldSettings';
 import FormPreview from './FormPreview';
 import SchemaViewer from './SchemaViewer';
 import FormsList from './FormsList';
+import FormTemplates from './FormTemplates';
 import { FormField } from '../types/formBuilder';
 import { supabase, Form } from '../lib/supabase';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function FormBuilder() {
+  const { theme, toggleTheme } = useTheme();
   const [fields, setFields] = useState<FormField[]>([]);
   const [selectedField, setSelectedField] = useState<FormField | null>(null);
   const [formName, setFormName] = useState('');
@@ -82,10 +85,48 @@ export default function FormBuilder() {
 
           elements.push(groupElement);
         } else {
-          parentProperties[field.name] = {
-            ...field.config,
-            title: field.label,
-          };
+          if (field.type === 'array' && field.config.columns) {
+            const itemProperties: any = {};
+            field.config.columns.forEach((col: any) => {
+              itemProperties[col.name] = {
+                type: col.type,
+                title: col.label,
+              };
+            });
+
+            parentProperties[field.name] = {
+              type: 'array',
+              title: field.label,
+              items: {
+                type: 'object',
+                properties: itemProperties,
+              },
+            };
+          } else if (field.type === 'chart') {
+            parentProperties[field.name] = {
+              type: 'string',
+              title: field.label,
+              chartType: field.config.chartType,
+              data: field.config.data,
+            };
+          } else if (field.type === 'display') {
+            parentProperties[field.name] = {
+              type: 'string',
+              title: field.label,
+              description: field.config.description,
+              variant: field.config.variant,
+            };
+          } else if (field.type === 'container') {
+            parentProperties[field.name] = {
+              type: 'string',
+              title: field.label,
+            };
+          } else {
+            parentProperties[field.name] = {
+              ...field.config,
+              title: field.label,
+            };
+          }
 
           if (field.required) {
             parentRequired.push(field.name);
@@ -323,21 +364,41 @@ export default function FormBuilder() {
     setActiveView('builder');
   };
 
+  const handleSelectTemplate = (template: { name: string; description: string; fields: FormField[] }) => {
+    if (fields.length > 0 && !confirm('Load template? Unsaved changes will be lost.')) {
+      return;
+    }
+    setFormName(template.name);
+    setFormDescription(template.description);
+    setFields(template.fields);
+    setCurrentFormId(null);
+    setSelectedField(null);
+    setActiveView('builder');
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <header className="bg-white border-b border-gray-200 shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Form Builder</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Form Builder</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                 Create dynamic forms with drag-and-drop
               </p>
             </div>
             <div className="flex items-center gap-3">
               <button
+                onClick={toggleTheme}
+                className="flex items-center justify-center p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              >
+                {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              </button>
+              <FormTemplates onSelectTemplate={handleSelectTemplate} />
+              <button
                 onClick={handleNewForm}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 New Form
@@ -345,7 +406,7 @@ export default function FormBuilder() {
               <button
                 onClick={handleSaveForm}
                 disabled={isSaving || fields.length === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
               >
                 <Save className="w-4 h-4" />
                 {isSaving ? 'Saving...' : 'Save Form'}
@@ -356,10 +417,10 @@ export default function FormBuilder() {
       </header>
 
       <div className="px-6 py-8">
-        <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Form Name
               </label>
               <input
@@ -367,11 +428,11 @@ export default function FormBuilder() {
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 placeholder="Enter form name..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description
               </label>
               <input
@@ -379,20 +440,20 @@ export default function FormBuilder() {
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 placeholder="Enter form description..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
         </div>
 
         <div className="mb-6">
-          <div className="flex items-center gap-2 bg-white rounded-lg shadow-sm border border-gray-200 p-1 w-fit">
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-1 w-fit">
             <button
               onClick={() => setActiveView('builder')}
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
                 activeView === 'builder'
                   ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               <Plus className="w-4 h-4" />
@@ -403,7 +464,7 @@ export default function FormBuilder() {
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
                 activeView === 'preview'
                   ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               <Eye className="w-4 h-4" />
@@ -414,7 +475,7 @@ export default function FormBuilder() {
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
                 activeView === 'schema'
                   ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               <Code className="w-4 h-4" />

@@ -23,12 +23,12 @@ export default function SchemaViewer({ schema, uiSchema }: SchemaViewerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-gray-900">JSON Schema</h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">JSON Schema</h3>
           <button
             onClick={() => copyToClipboard(JSON.stringify(schema, null, 2), 'schema')}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:text-white transition-colors"
           >
             {copiedSchema ? (
               <>
@@ -43,17 +43,17 @@ export default function SchemaViewer({ schema, uiSchema }: SchemaViewerProps) {
             )}
           </button>
         </div>
-        <pre className="bg-gray-50 rounded p-3 text-xs overflow-x-auto max-h-64 overflow-y-auto">
+        <pre className="bg-gray-50 dark:bg-gray-700 rounded p-3 text-xs overflow-x-auto max-h-64 overflow-y-auto">
           {JSON.stringify(schema, null, 2)}
         </pre>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-gray-900">UI Schema</h3>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">UI Schema</h3>
           <button
             onClick={() => copyToClipboard(JSON.stringify(uiSchema, null, 2), 'uiSchema')}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:text-white transition-colors"
           >
             {copiedUISchema ? (
               <>
@@ -68,7 +68,7 @@ export default function SchemaViewer({ schema, uiSchema }: SchemaViewerProps) {
             )}
           </button>
         </div>
-        <pre className="bg-gray-50 rounded p-3 text-xs overflow-x-auto max-h-64 overflow-y-auto">
+        <pre className="bg-gray-50 dark:bg-gray-700 rounded p-3 text-xs overflow-x-auto max-h-64 overflow-y-auto">
           {JSON.stringify(uiSchema, null, 2)}
         </pre>
       </div>

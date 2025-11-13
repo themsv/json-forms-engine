@@ -273,7 +273,7 @@ export default function FormCanvas({
             <div
               draggable
               onDragStart={(e) => handleFieldDragStart(e, field, index, containerId)}
-              className="flex items-center gap-3 p-3 border-b border-teal-200 bg-white/50 cursor-move"
+              className="flex items-center gap-3 p-3 border-b border-teal-200 bg-white dark:bg-gray-800/50 cursor-move"
             >
               <GripVertical className="w-5 h-5 text-teal-400" />
               {IconComponent && <IconComponent className="w-5 h-5 text-teal-600" />}
@@ -360,62 +360,99 @@ export default function FormCanvas({
             onClick={() => onFieldSelect(field)}
             className={`group rounded-xl border-2 transition-all cursor-move ${
               isSelected
-                ? 'border-blue-400 bg-white shadow-md'
-                : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                ? 'border-blue-400 bg-white dark:bg-gray-800 shadow-md'
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 hover:shadow-sm'
             } ${dragOverIndex === index && !containerId ? 'opacity-50' : ''}`}
           >
-            <div className="flex items-center gap-3 p-4">
-              <GripVertical className="w-5 h-5 text-gray-400 flex-shrink-0" />
-              {IconComponent && <IconComponent className="w-5 h-5 text-gray-700 flex-shrink-0" />}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm text-gray-600">{field.name}</span>
-                  <button
-                    onClick={(e) => handleResizeClick(e, field)}
-                    className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-medium cursor-pointer hover:bg-blue-100 transition-colors"
-                    title="Click to resize"
-                  >
-                    <Maximize2 className="w-3 h-3" />
-                    {getSizePercentage(field.size)}
-                  </button>
+            <div className="p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <GripVertical className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                {IconComponent && <IconComponent className="w-5 h-5 text-gray-700 dark:text-gray-300 flex-shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">{field.name}</span>
+                    <button
+                      onClick={(e) => handleResizeClick(e, field)}
+                      className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-medium cursor-pointer hover:bg-blue-100 transition-colors"
+                      title="Click to resize"
+                    >
+                      <Maximize2 className="w-3 h-3" />
+                      {getSizePercentage(field.size)}
+                    </button>
+                  </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-gray-900 dark:text-white">{field.label}</span>
+                  {field.required && (
+                    <span className="text-xs text-red-500 font-semibold">*</span>
+                  )}
+                  {field.visibility?.enabled && (
+                    <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      <Eye className="w-3 h-3" />
+                      Conditional
+                    </span>
+                  )}
+                  {field.readonly?.enabled && (
+                    <span className="flex items-center gap-1 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                      <Lock className="w-3 h-3" />
+                      Read-only
+                    </span>
+                  )}
                 </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-gray-900">{field.label}</span>
-                {field.required && (
-                  <span className="text-xs text-red-500 font-semibold">*</span>
-                )}
-                {field.visibility?.enabled && (
-                  <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                    <Eye className="w-3 h-3" />
-                    Conditional
-                  </span>
-                )}
-                {field.readonly?.enabled && (
-                  <span className="flex items-center gap-1 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
-                    <Lock className="w-3 h-3" />
-                    Read-only
-                  </span>
-                )}
               </div>
-            </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onFieldSelect(field);
-              }}
-              className="p-2 text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                containerId ? removeChildField(containerId, field.id) : removeField(index);
-              }}
-              className="p-2 text-gray-400 hover:text-red-600 transition-colors flex-shrink-0"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
+              </div>
+              {field.type === 'array' && field.config.columns && (
+                <div className="px-4 pb-3">
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                          {field.config.columns.map((col: any, idx: number) => (
+                            <th key={idx} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+                              {col.label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="bg-white dark:bg-gray-800">
+                          {field.config.columns.map((col: any, idx: number) => (
+                            <td key={idx} className="px-3 py-2 text-gray-400 dark:text-gray-500 border-b border-gray-100">
+                              {col.type === 'string' ? 'Text...' : col.type === 'number' ? '0' : col.type === 'boolean' ? '☐' : 'mm/dd/yyyy'}
+                            </td>
+                          ))}
+                        </tr>
+                        <tr className="bg-gray-50 dark:bg-gray-700">
+                          {field.config.columns.map((col: any, idx: number) => (
+                            <td key={idx} className="px-3 py-2 text-gray-400 dark:text-gray-500">
+                              {col.type === 'string' ? 'Text...' : col.type === 'number' ? '0' : col.type === 'boolean' ? '☐' : 'mm/dd/yyyy'}
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-1 border-t border-gray-200 dark:border-gray-700 pt-3 mt-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFieldSelect(field);
+                  }}
+                  className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 transition-colors flex-shrink-0"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    containerId ? removeChildField(containerId, field.id) : removeField(index);
+                  }}
+                  className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 transition-colors flex-shrink-0"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -523,10 +560,10 @@ export default function FormCanvas({
       onDrop={(e) => handleDrop(e)}
       onDragOver={(e) => handleDragOver(e)}
       onDragLeave={handleDragLeave}
-      className="bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 p-6 min-h-[500px]"
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-dashed border-gray-300 p-6 min-h-[500px]"
     >
       {fields.length === 0 ? (
-        <div className="flex items-center justify-center h-full text-gray-400">
+        <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
           <p className="text-center">
             Drag and drop fields here to build your form
           </p>
