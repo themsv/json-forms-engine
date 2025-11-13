@@ -18,7 +18,9 @@ export default function FormCanvas({
 }: FormCanvasProps) {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [dragOverContainer, setDragOverContainer] = useState<string | null>(null);
-  const [dragOverDropZone, setDragOverDropZone] = useState<number | null>(null);
+  const [dragOverDropZone, setDragOverDropZone] = useState<{ row: number; position: number } | null>(null);
+  const [containerDropZones, setContainerDropZones] = useState<{ [containerId: string]: number | null }>({});
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleDrop = (e: React.DragEvent, containerId?: string) => {
     e.preventDefault();
@@ -35,8 +37,12 @@ export default function FormCanvas({
         type: fieldType.type,
         required: false,
         config: { ...fieldType.defaultConfig },
-        isContainer: fieldType.type === 'container',
-        children: fieldType.type === 'container' ? [] : undefined,
+        isContainer: fieldType.type === 'container' || fieldType.type === 'panel',
+        children: (fieldType.type === 'container' || fieldType.type === 'panel') ? [] : undefined,
+        row: fields.length,
+        panelState: fieldType.type === 'panel' ? 'normal' : undefined,
+        panelWidth: fieldType.type === 'panel' ? '100%' : undefined,
+        panelHeight: fieldType.type === 'panel' ? '400px' : undefined,
       };
 
       if (containerId) {
@@ -55,7 +61,7 @@ export default function FormCanvas({
           if (containerId) {
             newFields = addFieldToContainer(newFields, containerId, field);
           } else {
-            newFields = [...newFields, field];
+            newFields = [...newFields, { ...field, row: newFields.length }];
           }
           onFieldsChange(newFields);
         }
@@ -68,7 +74,11 @@ export default function FormCanvas({
           newFields = addFieldToContainer(newFields, containerId, field);
         } else {
           const targetIndex = dragOverIndex !== null ? dragOverIndex : newFields.length;
-          newFields.splice(targetIndex, 0, field);
+          newFields.splice(targetIndex, 0, { ...field, row: targetIndex });
+
+          newFields.forEach((f, idx) => {
+            f.row = idx;
+          });
         }
         onFieldsChange(newFields);
       }
@@ -76,12 +86,17 @@ export default function FormCanvas({
 
     setDragOverIndex(null);
     setDragOverContainer(null);
+    setIsDragging(false);
   };
 
   const findFieldInContainer = (fields: FormField[], containerId: string, fieldId: string): FormField | null => {
     for (const field of fields) {
       if (field.id === containerId && field.children) {
         const found = field.children.find(c => c.id === fieldId);
+        if (found) return found;
+      }
+      if (field.isContainer && field.children) {
+        const found = findFieldInContainer(field.children, containerId, fieldId);
         if (found) return found;
       }
     }
@@ -96,6 +111,12 @@ export default function FormCanvas({
           children: [...(field.children || []), newField],
         };
       }
+      if (field.isContainer && field.children) {
+        return {
+          ...field,
+          children: addFieldToContainer(field.children, containerId, newField),
+        };
+      }
       return field;
     });
   };
@@ -106,6 +127,12 @@ export default function FormCanvas({
         return {
           ...field,
           children: field.children.filter(c => c.id !== fieldId),
+        };
+      }
+      if (field.isContainer && field.children) {
+        return {
+          ...field,
+          children: removeFieldFromContainer(field.children, containerId, fieldId),
         };
       }
       return field;
@@ -139,6 +166,12 @@ export default function FormCanvas({
       'existingField',
       JSON.stringify({ fieldId: field.id, sourceIndex: index, sourceContainerId: containerId })
     );
+    setIsDragging(true);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    setDragOverDropZone(null);
   };
 
   const removeField = (index: number) => {
@@ -228,6 +261,7 @@ export default function FormCanvas({
     const IconComponent = getFieldIcon(field);
     const isSelected = selectedField?.id === field.id;
     const isContainer = field.isContainer;
+    const isPanel = field.type === 'panel';
     const isSection = field.type === 'container' && field.config.title === 'Section';
     const isSubsection = field.type === 'container' && field.config.title === 'Subsection';
 
@@ -248,6 +282,131 @@ export default function FormCanvas({
         default: return 'w-full';
       }
     };
+
+    if (isPanel) {
+      return (
+        <div
+          key={field.id}
+          className={`relative ${getSizeClass(field.size)} flex-shrink-0 transition-all duration-200`}
+          onDragOver={(e) => handleDragOver(e, index, containerId)}
+          onDragLeave={handleDragLeave}
+        >
+          {dragOverIndex === index && !containerId && (
+            <div className="absolute -top-2 left-0 right-0 h-1 bg-blue-500 rounded-full shadow-lg z-10">
+              <div className="absolute inset-0 bg-blue-400 animate-pulse rounded-full"></div>
+            </div>
+          )}
+          <div
+            onClick={() => onFieldSelect(field)}
+            className={`group rounded-lg transition-all ${isSelected ? 'ring-2 ring-blue-500' : ''} ${dragOverIndex === index && !containerId ? 'opacity-50' : ''}`}
+          >
+            <div
+              draggable
+              onDragStart={(e) => handleFieldDragStart(e, field, index, containerId)}
+              onDragEnd={handleDragEnd}
+              className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-600 cursor-move rounded-t-lg"
+            >
+              <div className="flex items-center gap-2">
+                <GripVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                {IconComponent && <IconComponent className="w-4 h-4 text-blue-600" />}
+                <span className="font-semibold text-gray-800 dark:text-white text-sm">{field.label}</span>
+                <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Panel</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFieldSelect(field);
+                  }}
+                  className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    containerId ? removeChildField(containerId, field.id) : removeField(index);
+                  }}
+                  className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900 text-gray-600 dark:text-gray-300 hover:text-red-600 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div
+              onDrop={(e) => handleDrop(e, field.id)}
+              onDragOver={(e) => handleDragOver(e, undefined, field.id)}
+              onDragLeave={handleDragLeave}
+              className={`p-4 min-h-[200px] bg-white dark:bg-gray-800 rounded-b-lg border-2 border-gray-200 dark:border-gray-700 ${
+                dragOverContainer === field.id ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : ''
+              }`}
+            >
+              {!field.children || field.children.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 min-h-[150px]">
+                  <div className="text-center">
+                    <Plus className="w-8 h-8 mx-auto mb-2" />
+                    <p className="text-sm font-medium">Drop components here</p>
+                    <p className="text-xs mt-1">Charts, Tables, Dropdowns, etc.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {groupFieldsIntoRows(field.children).map((row, rowIndex) => (
+                    <div key={`panel-${field.id}-row-${rowIndex}`} className="relative group/container-row">
+                      <div className="flex gap-3 items-stretch relative">
+                        {row.map((child, indexInRow) => {
+                          const childIndex = field.children!.indexOf(child);
+                          return (
+                            <div key={child.id} className="contents">
+                              {indexInRow === 0 && (
+                                <div
+                                  onDragOver={(e) => handleContainerDropZoneDragOver(e, field.id, childIndex)}
+                                  onDragLeave={(e) => handleContainerDropZoneDragLeave(e, field.id)}
+                                  onDrop={(e) => handleContainerDropZoneDrop(e, field.id, childIndex)}
+                                  className={`flex-shrink-0 transition-all duration-200 ${
+                                    containerDropZones[field.id] === childIndex
+                                      ? 'w-12 bg-blue-100 dark:bg-blue-900/30 border-2 border-dashed border-blue-400 dark:border-blue-500 rounded-lg'
+                                      : 'w-0'
+                                  }`}
+                                >
+                                  {containerDropZones[field.id] === childIndex && (
+                                    <div className="h-full flex items-center justify-center">
+                                      <div className="w-1 h-full bg-blue-500 rounded-full shadow-lg"></div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {renderField(child, childIndex, field.id)}
+                              <div
+                                onDragOver={(e) => handleContainerDropZoneDragOver(e, field.id, childIndex + 1)}
+                                onDragLeave={(e) => handleContainerDropZoneDragLeave(e, field.id)}
+                                onDrop={(e) => handleContainerDropZoneDrop(e, field.id, childIndex + 1)}
+                                className={`flex-shrink-0 transition-all duration-200 ${
+                                  containerDropZones[field.id] === childIndex + 1
+                                    ? 'w-12 bg-blue-100 dark:bg-blue-900/30 border-2 border-dashed border-blue-400 dark:border-blue-500 rounded-lg'
+                                    : 'w-0'
+                                }`}
+                              >
+                                {containerDropZones[field.id] === childIndex + 1 && (
+                                  <div className="h-full flex items-center justify-center">
+                                    <div className="w-1 h-full bg-blue-500 rounded-full shadow-lg"></div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     if (isContainer) {
       return (
@@ -273,6 +432,7 @@ export default function FormCanvas({
             <div
               draggable
               onDragStart={(e) => handleFieldDragStart(e, field, index, containerId)}
+              onDragEnd={handleDragEnd}
               className="flex items-center gap-3 p-3 border-b border-teal-200 bg-white dark:bg-gray-800/50 cursor-move"
             >
               <GripVertical className="w-5 h-5 text-teal-400" />
@@ -318,11 +478,11 @@ export default function FormCanvas({
               onDragOver={(e) => handleDragOver(e, undefined, field.id)}
               onDragLeave={handleDragLeave}
               className={`p-4 min-h-[100px] ${
-                dragOverContainer === field.id ? 'bg-teal-100/50 border-2 border-dashed border-teal-400' : ''
+                dragOverContainer === field.id ? 'bg-teal-100/50 dark:bg-teal-900/20 border-2 border-dashed border-teal-400' : ''
               }`}
             >
               {!field.children || field.children.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-teal-400 border-2 border-dashed border-teal-200 rounded-lg p-6">
+                <div className="flex items-center justify-center h-full text-teal-400 border-2 border-dashed border-teal-200 dark:border-teal-700 rounded-lg p-6">
                   <div className="text-center">
                     <Plus className="w-8 h-8 mx-auto mb-2" />
                     <p className="text-sm">Drop fields here</p>
@@ -330,8 +490,53 @@ export default function FormCanvas({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {field.children.map((child, childIndex) => (
-                    <div key={child.id}>{renderField(child, childIndex, field.id)}</div>
+                  {groupFieldsIntoRows(field.children).map((row, rowIndex) => (
+                    <div key={`container-${field.id}-row-${rowIndex}`} className="relative group/container-row">
+                      <div className="flex gap-3 items-stretch relative">
+                        {row.map((child, indexInRow) => {
+                          const childIndex = field.children!.indexOf(child);
+                          return (
+                            <div key={child.id} className="contents">
+                              {indexInRow === 0 && (
+                                <div
+                                  onDragOver={(e) => handleContainerDropZoneDragOver(e, field.id, childIndex)}
+                                  onDragLeave={(e) => handleContainerDropZoneDragLeave(e, field.id)}
+                                  onDrop={(e) => handleContainerDropZoneDrop(e, field.id, childIndex)}
+                                  className={`flex-shrink-0 transition-all duration-200 ${
+                                    containerDropZones[field.id] === childIndex
+                                      ? 'w-12 bg-teal-100 dark:bg-teal-900/30 border-2 border-dashed border-teal-400 dark:border-teal-500 rounded-lg'
+                                      : 'w-0'
+                                  }`}
+                                >
+                                  {containerDropZones[field.id] === childIndex && (
+                                    <div className="h-full flex items-center justify-center">
+                                      <div className="w-1 h-full bg-teal-500 rounded-full shadow-lg"></div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {renderField(child, childIndex, field.id)}
+                              <div
+                                onDragOver={(e) => handleContainerDropZoneDragOver(e, field.id, childIndex + 1)}
+                                onDragLeave={(e) => handleContainerDropZoneDragLeave(e, field.id)}
+                                onDrop={(e) => handleContainerDropZoneDrop(e, field.id, childIndex + 1)}
+                                className={`flex-shrink-0 transition-all duration-200 ${
+                                  containerDropZones[field.id] === childIndex + 1
+                                    ? 'w-12 bg-teal-100 dark:bg-teal-900/30 border-2 border-dashed border-teal-400 dark:border-teal-500 rounded-lg'
+                                    : 'w-0'
+                                }`}
+                              >
+                                {containerDropZones[field.id] === childIndex + 1 && (
+                                  <div className="h-full flex items-center justify-center">
+                                    <div className="w-1 h-full bg-teal-500 rounded-full shadow-lg"></div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -357,6 +562,7 @@ export default function FormCanvas({
           <div
             draggable
             onDragStart={(e) => handleFieldDragStart(e, field, index, containerId)}
+            onDragEnd={handleDragEnd}
             onClick={() => onFieldSelect(field)}
             className={`group rounded-xl border-2 transition-all cursor-move ${
               isSelected
@@ -460,46 +666,142 @@ export default function FormCanvas({
     );
   };
 
-  const groupFieldsIntoRows = () => {
-    const rows: FormField[][] = [];
-    let currentRow: FormField[] = [];
+  const groupFieldsIntoRows = (fieldsList: FormField[]) => {
+    const rowsMap: { [row: number]: FormField[] } = {};
 
-    fields.forEach((field) => {
-      const fieldSize = field.size || 'full';
-
-      if (fieldSize === 'full') {
-        if (currentRow.length > 0) {
-          rows.push(currentRow);
-          currentRow = [];
-        }
-        rows.push([field]);
-      } else {
-        currentRow.push(field);
-        const totalWidth = currentRow.reduce((sum, f) => {
-          const size = f.size || 'full';
-          return sum + (size === 'small' ? 25 : size === 'medium' ? 50 : size === 'large' ? 75 : 100);
-        }, 0);
-
-        if (totalWidth >= 100) {
-          rows.push(currentRow);
-          currentRow = [];
-        }
+    fieldsList.forEach((field, index) => {
+      const rowNumber = field.row !== undefined ? field.row : index;
+      if (!rowsMap[rowNumber]) {
+        rowsMap[rowNumber] = [];
       }
+      rowsMap[rowNumber].push(field);
     });
 
-    if (currentRow.length > 0) {
-      rows.push(currentRow);
-    }
-
-    return rows;
+    const sortedRowNumbers = Object.keys(rowsMap).map(Number).sort((a, b) => a - b);
+    return sortedRowNumbers.map(rowNum => {
+      return rowsMap[rowNum].sort((a, b) => (a.column || 0) - (b.column || 0));
+    });
   };
 
-  const rows = groupFieldsIntoRows();
-
-  const handleDropZoneDragOver = (e: React.DragEvent, index: number) => {
+  const handleContainerDropZoneDragOver = (e: React.DragEvent, containerId: string, childIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragOverDropZone(index);
+    setContainerDropZones({ ...containerDropZones, [containerId]: childIndex });
+  };
+
+  const handleContainerDropZoneDragLeave = (e: React.DragEvent, containerId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContainerDropZones({ ...containerDropZones, [containerId]: null });
+  };
+
+  const handleContainerDropZoneDrop = (e: React.DragEvent, containerId: string, targetIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const fieldTypeData = e.dataTransfer.getData('fieldType');
+    const existingFieldData = e.dataTransfer.getData('existingField');
+
+    if (fieldTypeData) {
+      const fieldType = JSON.parse(fieldTypeData);
+      const newField: FormField = {
+        id: `field_${Date.now()}`,
+        name: `field_${Date.now()}`,
+        label: fieldType.defaultConfig.title || fieldType.label,
+        type: fieldType.type,
+        required: false,
+        config: { ...fieldType.defaultConfig },
+        isContainer: fieldType.type === 'container',
+        children: fieldType.type === 'container' ? [] : undefined,
+      };
+
+      const newFields = insertFieldIntoContainer(fields, containerId, newField, targetIndex);
+      onFieldsChange(newFields);
+    } else if (existingFieldData) {
+      const { fieldId, sourceIndex, sourceContainerId } = JSON.parse(existingFieldData);
+
+      if (sourceContainerId === containerId) {
+        const container = findContainer(fields, containerId);
+        if (container && container.children) {
+          const field = container.children[sourceIndex];
+          let newChildren = [...container.children];
+          newChildren.splice(sourceIndex, 1);
+          const adjustedIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+          newChildren.splice(adjustedIndex, 0, field);
+
+          const newFields = updateContainerChildren(fields, containerId, newChildren);
+          onFieldsChange(newFields);
+        }
+      } else {
+        const field = sourceContainerId
+          ? findFieldInContainer(fields, sourceContainerId, fieldId)
+          : fields[sourceIndex];
+
+        if (field) {
+          let newFields = sourceContainerId
+            ? removeFieldFromContainer(fields, sourceContainerId, fieldId)
+            : fields.filter((_, i) => i !== sourceIndex);
+
+          newFields = insertFieldIntoContainer(newFields, containerId, field, targetIndex);
+          onFieldsChange(newFields);
+        }
+      }
+    }
+
+    setContainerDropZones({ ...containerDropZones, [containerId]: null });
+  };
+
+  const findContainer = (fieldsList: FormField[], containerId: string): FormField | null => {
+    for (const field of fieldsList) {
+      if (field.id === containerId) {
+        return field;
+      }
+      if (field.isContainer && field.children) {
+        const found = findContainer(field.children, containerId);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const insertFieldIntoContainer = (fieldsList: FormField[], containerId: string, newField: FormField, index: number): FormField[] => {
+    return fieldsList.map(field => {
+      if (field.id === containerId && field.isContainer) {
+        const children = [...(field.children || [])];
+        children.splice(index, 0, newField);
+        return { ...field, children };
+      }
+      if (field.isContainer && field.children) {
+        return {
+          ...field,
+          children: insertFieldIntoContainer(field.children, containerId, newField, index),
+        };
+      }
+      return field;
+    });
+  };
+
+  const updateContainerChildren = (fieldsList: FormField[], containerId: string, newChildren: FormField[]): FormField[] => {
+    return fieldsList.map(field => {
+      if (field.id === containerId && field.isContainer) {
+        return { ...field, children: newChildren };
+      }
+      if (field.isContainer && field.children) {
+        return {
+          ...field,
+          children: updateContainerChildren(field.children, containerId, newChildren),
+        };
+      }
+      return field;
+    });
+  };
+
+  const rows = groupFieldsIntoRows(fields);
+
+  const handleDropZoneDragOver = (e: React.DragEvent, rowNum: number, position: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverDropZone({ row: rowNum, position });
   };
 
   const handleDropZoneDragLeave = (e: React.DragEvent) => {
@@ -508,7 +810,7 @@ export default function FormCanvas({
     setDragOverDropZone(null);
   };
 
-  const handleDropZoneDrop = (e: React.DragEvent, targetIndex: number) => {
+  const handleDropZoneDrop = (e: React.DragEvent, targetRow: number, targetPosition: number) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -526,10 +828,25 @@ export default function FormCanvas({
         config: { ...fieldType.defaultConfig },
         isContainer: fieldType.type === 'container',
         children: fieldType.type === 'container' ? [] : undefined,
+        row: targetRow,
+        column: targetPosition,
       };
 
       const newFields = [...fields];
-      newFields.splice(targetIndex, 0, newField);
+      const targetIndex = fields.findIndex(f => f.row === targetRow && (f.column || 0) >= targetPosition);
+
+      if (targetIndex === -1) {
+        newFields.push(newField);
+      } else {
+        newFields.splice(targetIndex, 0, newField);
+      }
+
+      newFields.forEach((f, idx) => {
+        if (f.row === targetRow && (f.column || 0) >= targetPosition) {
+          f.column = (f.column || 0) + 1;
+        }
+      });
+
       onFieldsChange(newFields);
     } else if (existingFieldData) {
       const { fieldId, sourceIndex, sourceContainerId } = JSON.parse(existingFieldData);
@@ -538,21 +855,56 @@ export default function FormCanvas({
         const field = findFieldInContainer(fields, sourceContainerId, fieldId);
         if (field) {
           let newFields = removeFieldFromContainer(fields, sourceContainerId, fieldId);
-          newFields.splice(targetIndex, 0, field);
+          const updatedField = { ...field, row: targetRow, column: targetPosition };
+
+          const targetIndex = newFields.findIndex(f => f.row === targetRow && (f.column || 0) >= targetPosition);
+          if (targetIndex === -1) {
+            newFields.push(updatedField);
+          } else {
+            newFields.splice(targetIndex, 0, updatedField);
+          }
+
+          newFields.forEach(f => {
+            if (f.row === targetRow && f.id !== updatedField.id && (f.column || 0) >= targetPosition) {
+              f.column = (f.column || 0) + 1;
+            }
+          });
+
           onFieldsChange(newFields);
         }
       } else {
         const field = fields[sourceIndex];
         let newFields = [...fields];
+
+        const oldRow = field.row || 0;
+        const oldColumn = field.column || 0;
+
         newFields.splice(sourceIndex, 1);
 
-        const adjustedIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
-        newFields.splice(adjustedIndex, 0, field);
+        const updatedField = { ...field, row: targetRow, column: targetPosition };
+        const targetIndex = newFields.findIndex(f => f.row === targetRow && (f.column || 0) >= targetPosition);
+
+        if (targetIndex === -1) {
+          newFields.push(updatedField);
+        } else {
+          newFields.splice(targetIndex, 0, updatedField);
+        }
+
+        newFields.forEach(f => {
+          if (f.row === oldRow && (f.column || 0) > oldColumn) {
+            f.column = Math.max(0, (f.column || 0) - 1);
+          }
+          if (f.row === targetRow && f.id !== updatedField.id && (f.column || 0) >= targetPosition) {
+            f.column = (f.column || 0) + 1;
+          }
+        });
+
         onFieldsChange(newFields);
       }
     }
 
     setDragOverDropZone(null);
+    setIsDragging(false);
   };
 
   return (
@@ -560,62 +912,109 @@ export default function FormCanvas({
       onDrop={(e) => handleDrop(e)}
       onDragOver={(e) => handleDragOver(e)}
       onDragLeave={handleDragLeave}
-      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-dashed border-gray-300 p-6 min-h-[500px]"
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-dashed border-gray-300 dark:border-gray-600 p-6 min-h-[500px]"
     >
       {fields.length === 0 ? (
         <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
-          <p className="text-center">
-            Drag and drop fields here to build your form
-          </p>
+          <div className="text-center">
+            <p className="text-lg font-medium mb-2">Drop fields here to build your form</p>
+            <p className="text-sm">Drag fields between drop zones to arrange them in rows</p>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
-          {rows.map((row, rowIndex) => (
-            <div key={`row-${rowIndex}`} className="flex gap-3 items-stretch">
-              {row.map((field, indexInRow) => {
-                const fieldIndex = fields.indexOf(field);
-                return (
-                  <div key={field.id} className="contents">
-                    {indexInRow === 0 && (
-                      <div
-                        onDragOver={(e) => handleDropZoneDragOver(e, fieldIndex)}
-                        onDragLeave={handleDropZoneDragLeave}
-                        onDrop={(e) => handleDropZoneDrop(e, fieldIndex)}
-                        className={`flex-shrink-0 transition-all ${
-                          dragOverDropZone === fieldIndex
-                            ? 'w-12 bg-blue-100 border-2 border-dashed border-blue-400 rounded-lg'
-                            : 'w-0'
-                        }`}
-                      >
-                        {dragOverDropZone === fieldIndex && (
-                          <div className="h-full flex items-center justify-center">
-                            <div className="w-1 h-full bg-blue-500 rounded-full"></div>
-                          </div>
-                        )}
+          {rows.map((row, rowIndex) => {
+            const actualRowNumber = row[0]?.row !== undefined ? row[0].row : rowIndex;
+            const nextRowNumber = actualRowNumber + 1;
+            return (
+              <div key={`row-${rowIndex}`}>
+                {rowIndex === 0 && (
+                  <div
+                    onDragOver={(e) => handleDropZoneDragOver(e, actualRowNumber, 0)}
+                    onDragLeave={handleDropZoneDragLeave}
+                    onDrop={(e) => handleDropZoneDrop(e, actualRowNumber, 0)}
+                    className={`transition-all duration-200 mb-2 ${
+                      dragOverDropZone?.row === actualRowNumber && dragOverDropZone?.position === 0
+                        ? 'h-12 bg-blue-100 dark:bg-blue-900/30 border-2 border-dashed border-blue-400 dark:border-blue-500 rounded-lg'
+                        : 'h-1'
+                    }`}
+                  >
+                    {dragOverDropZone?.row === actualRowNumber && dragOverDropZone?.position === 0 && (
+                      <div className="h-full flex items-center justify-center">
+                        <div className="h-1 w-full bg-blue-500 rounded-full shadow-lg"></div>
                       </div>
                     )}
-                    {renderField(field, fieldIndex)}
-                    <div
-                      onDragOver={(e) => handleDropZoneDragOver(e, fieldIndex + 1)}
-                      onDragLeave={handleDropZoneDragLeave}
-                      onDrop={(e) => handleDropZoneDrop(e, fieldIndex + 1)}
-                      className={`flex-shrink-0 transition-all ${
-                        dragOverDropZone === fieldIndex + 1
-                          ? 'w-12 bg-blue-100 border-2 border-dashed border-blue-400 rounded-lg'
-                          : 'w-0'
-                      }`}
-                    >
-                      {dragOverDropZone === fieldIndex + 1 && (
-                        <div className="h-full flex items-center justify-center">
-                          <div className="w-1 h-full bg-blue-500 rounded-full"></div>
-                        </div>
-                      )}
-                    </div>
                   </div>
-                );
-              })}
-            </div>
-          ))}
+                )}
+                <div className="relative group/row">
+                  <div className="flex gap-3 items-stretch relative">
+                    {row.map((field, indexInRow) => {
+                      const fieldIndex = fields.indexOf(field);
+                      const isDropZoneActive = dragOverDropZone?.row === actualRowNumber;
+                      return (
+                        <div key={field.id} className="contents">
+                          <div
+                            onDragOver={(e) => handleDropZoneDragOver(e, actualRowNumber, indexInRow)}
+                            onDragLeave={handleDropZoneDragLeave}
+                            onDrop={(e) => handleDropZoneDrop(e, actualRowNumber, indexInRow)}
+                            className={`flex-shrink-0 transition-all duration-200 flex items-center justify-center ${
+                              isDropZoneActive && dragOverDropZone?.position === indexInRow
+                                ? 'w-12 bg-blue-100 dark:bg-blue-900/30 border-2 border-dashed border-blue-400 dark:border-blue-500 rounded-lg'
+                                : isDragging
+                                ? 'w-3 bg-gray-50 dark:bg-gray-800 opacity-70'
+                                : 'w-0'
+                            }`}
+                          >
+                            {isDropZoneActive && dragOverDropZone?.position === indexInRow ? (
+                              <div className="w-1 h-full bg-blue-500 rounded-full shadow-lg"></div>
+                            ) : isDragging ? (
+                              <div className="w-0.5 h-full bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                            ) : null}
+                          </div>
+                          {renderField(field, fieldIndex)}
+                          <div
+                            onDragOver={(e) => handleDropZoneDragOver(e, actualRowNumber, indexInRow + 1)}
+                            onDragLeave={handleDropZoneDragLeave}
+                            onDrop={(e) => handleDropZoneDrop(e, actualRowNumber, indexInRow + 1)}
+                            className={`flex-shrink-0 transition-all duration-200 flex items-center justify-center ${
+                              isDropZoneActive && dragOverDropZone?.position === indexInRow + 1
+                                ? 'w-12 bg-blue-100 dark:bg-blue-900/30 border-2 border-dashed border-blue-400 dark:border-blue-500 rounded-lg'
+                                : isDragging
+                                ? 'w-3 bg-gray-50 dark:bg-gray-800 opacity-70'
+                                : 'w-0'
+                            }`}
+                          >
+                            {isDropZoneActive && dragOverDropZone?.position === indexInRow + 1 ? (
+                              <div className="w-1 h-full bg-blue-500 rounded-full shadow-lg"></div>
+                            ) : isDragging ? (
+                              <div className="w-0.5 h-full bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="absolute -left-3 top-0 bottom-0 w-1 bg-gray-200 dark:bg-gray-700 rounded-full opacity-0 group-hover/row:opacity-100 transition-opacity"></div>
+                </div>
+                <div
+                  onDragOver={(e) => handleDropZoneDragOver(e, nextRowNumber, 0)}
+                  onDragLeave={handleDropZoneDragLeave}
+                  onDrop={(e) => handleDropZoneDrop(e, nextRowNumber, 0)}
+                  className={`transition-all duration-200 mt-2 ${
+                    dragOverDropZone?.row === nextRowNumber && dragOverDropZone?.position === 0
+                      ? 'h-12 bg-blue-100 dark:bg-blue-900/30 border-2 border-dashed border-blue-400 dark:border-blue-500 rounded-lg'
+                      : 'h-1'
+                  }`}
+                >
+                  {dragOverDropZone?.row === nextRowNumber && dragOverDropZone?.position === 0 && (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="h-1 w-full bg-blue-500 rounded-full shadow-lg"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

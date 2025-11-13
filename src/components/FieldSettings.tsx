@@ -39,6 +39,22 @@ export default function FieldSettings({ field, allFields, onUpdate, onClose }: F
     handleConfigChange('enum', enumValues);
   };
 
+  const handleMultiEnumChange = (value: string) => {
+    const enumValues = value.split('\n').filter((v) => v.trim());
+    const updated = {
+      ...localField,
+      config: {
+        ...localField.config,
+        items: {
+          ...localField.config.items,
+          enum: enumValues,
+        },
+      },
+    };
+    setLocalField(updated);
+    onUpdate(updated);
+  };
+
   const isContainer = localField.isContainer;
 
   return (
@@ -136,7 +152,21 @@ export default function FieldSettings({ field, allFields, onUpdate, onClose }: F
               value={localField.config.enum.join('\n')}
               onChange={(e) => handleEnumChange(e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+            />
+          </div>
+        )}
+
+        {!isContainer && localField.type === 'array' && localField.config.items?.enum && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Options (one per line)
+            </label>
+            <textarea
+              value={localField.config.items.enum.join('\n')}
+              onChange={(e) => handleMultiEnumChange(e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
             />
           </div>
         )}
@@ -205,6 +235,21 @@ export default function FieldSettings({ field, allFields, onUpdate, onClose }: F
             <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
               Use MIME types or file extensions (e.g., image/*, .pdf, .docx)
             </p>
+          </div>
+        )}
+
+        {localField.type === 'text' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Text Content
+            </label>
+            <textarea
+              value={localField.config.content || ''}
+              onChange={(e) => handleConfigChange('content', e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter your text content here..."
+            />
           </div>
         )}
 
@@ -302,6 +347,92 @@ export default function FieldSettings({ field, allFields, onUpdate, onClose }: F
                 <Plus className="w-4 h-4" />
                 Add Column
               </button>
+            </div>
+          </div>
+        )}
+
+        {localField.type === 'navigation' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Navigation Items
+            </label>
+            <div className="space-y-2">
+              {localField.config.items?.map((item: any, index: number) => (
+                <div key={index} className="flex gap-2 items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <div className="flex-1 space-y-2">
+                    <input
+                      type="text"
+                      value={item.label}
+                      onChange={(e) => {
+                        const newItems = [...localField.config.items];
+                        newItems[index] = { ...item, label: e.target.value };
+                        handleConfigChange('items', newItems);
+                      }}
+                      placeholder="Label"
+                      className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={item.url}
+                      onChange={(e) => {
+                        const newItems = [...localField.config.items];
+                        newItems[index] = { ...item, url: e.target.value };
+                        handleConfigChange('items', newItems);
+                      }}
+                      placeholder="URL"
+                      className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded text-sm"
+                    />
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={item.active || false}
+                        onChange={(e) => {
+                          const newItems = [...localField.config.items];
+                          newItems[index] = { ...item, active: e.target.checked };
+                          handleConfigChange('items', newItems);
+                        }}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Active</span>
+                    </label>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newItems = localField.config.items.filter((_: any, i: number) => i !== index);
+                      handleConfigChange('items', newItems);
+                    }}
+                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => {
+                  const newItems = [
+                    ...(localField.config.items || []),
+                    { label: 'New Item', url: '#', active: false }
+                  ];
+                  handleConfigChange('items', newItems);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Nav Item
+              </button>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Layout Style
+              </label>
+              <select
+                value={localField.config.variant || 'horizontal'}
+                onChange={(e) => handleConfigChange('variant', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+              </select>
             </div>
           </div>
         )}

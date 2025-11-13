@@ -28,49 +28,10 @@ export default function FormBuilder() {
 
     const processFields = (fieldList: FormField[], parentProperties: any, parentRequired: string[]): any[] => {
       const elements: any[] = [];
-      let currentRow: any[] = [];
-      let currentRowWidth = 0;
-
-      const getSizeWidth = (size?: string) => {
-        switch (size) {
-          case 'small': return 3;
-          case 'medium': return 6;
-          case 'large': return 9;
-          case 'full':
-          default: return 12;
-        }
-      };
-
-      const flushRow = () => {
-        if (currentRow.length > 0) {
-          if (currentRow.length === 1) {
-            elements.push(currentRow[0]);
-          } else {
-            const horizontalElements = currentRow.map((el, idx) => {
-              const fieldData = fieldList.find(f => el.scope === `#/properties/${f.name}`);
-              const width = getSizeWidth(fieldData?.size);
-              return {
-                ...el,
-                options: {
-                  ...el.options,
-                  xs: width,
-                },
-              };
-            });
-            elements.push({
-              type: 'HorizontalLayout',
-              elements: horizontalElements,
-            });
-          }
-          currentRow = [];
-          currentRowWidth = 0;
-        }
-      };
+      const rowsMap: { [row: number]: any[] } = {};
 
       fieldList.forEach((field) => {
         if (field.isContainer && field.children) {
-          flushRow();
-
           const childElements = processFields(field.children, parentProperties, parentRequired);
           const isSection = field.config.title === 'Section';
 
@@ -83,7 +44,9 @@ export default function FormBuilder() {
             },
           };
 
-          elements.push(groupElement);
+          const row = field.row || 0;
+          if (!rowsMap[row]) rowsMap[row] = [];
+          rowsMap[row].push(groupElement);
         } else {
           if (field.type === 'array' && field.config.columns) {
             const itemProperties: any = {};
@@ -108,6 +71,20 @@ export default function FormBuilder() {
               title: field.label,
               chartType: field.config.chartType,
               data: field.config.data,
+            };
+          } else if (field.type === 'text') {
+            parentProperties[field.name] = {
+              type: 'string',
+              title: field.label,
+              textType: field.config.textType,
+              content: field.config.content,
+            };
+          } else if (field.type === 'navigation') {
+            parentProperties[field.name] = {
+              type: 'string',
+              title: field.label,
+              navItems: field.config.items,
+              navVariant: field.config.variant,
             };
           } else if (field.type === 'display') {
             parentProperties[field.name] = {
@@ -175,22 +152,25 @@ export default function FormBuilder() {
             }
           }
 
-          const fieldWidth = getSizeWidth(field.size);
-
-          if (currentRowWidth + fieldWidth > 12 || fieldWidth === 12) {
-            flushRow();
-          }
-
-          if (fieldWidth === 12) {
-            elements.push(element);
-          } else {
-            currentRow.push(element);
-            currentRowWidth += fieldWidth;
-          }
+          const row = field.row || 0;
+          if (!rowsMap[row]) rowsMap[row] = [];
+          rowsMap[row].push(element);
         }
       });
 
-      flushRow();
+      const sortedRows = Object.keys(rowsMap).sort((a, b) => Number(a) - Number(b));
+      sortedRows.forEach(rowKey => {
+        const rowElements = rowsMap[Number(rowKey)];
+        if (rowElements.length === 1) {
+          elements.push(rowElements[0]);
+        } else if (rowElements.length > 1) {
+          elements.push({
+            type: 'HorizontalLayout',
+            elements: rowElements,
+          });
+        }
+      });
+
       return elements;
     };
 
@@ -233,7 +213,22 @@ export default function FormBuilder() {
   const { schema, uiSchema } = generateSchema();
 
   const handleFieldUpdate = (updatedField: FormField) => {
-    setFields(fields.map((f) => (f.id === updatedField.id ? updatedField : f)));
+    const updateFieldRecursively = (fieldsList: FormField[]): FormField[] => {
+      return fieldsList.map((f) => {
+        if (f.id === updatedField.id) {
+          return updatedField;
+        }
+        if (f.isContainer && f.children) {
+          return {
+            ...f,
+            children: updateFieldRecursively(f.children),
+          };
+        }
+        return f;
+      });
+    };
+
+    setFields(updateFieldRecursively(fields));
     setSelectedField(updatedField);
   };
 
@@ -496,7 +491,21 @@ export default function FormBuilder() {
             </div>
           </div>
 
-          <div className="col-span-8">
+          <div className="col-span-8 space-y-4">
+            {activeView === 'builder' && fields.length === 0 && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                  💡 How to arrange fields in rows
+                </h3>
+                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1.5 list-disc list-inside">
+                  <li>Drag fields from the palette on the left</li>
+                  <li>Click the resize button (25%, 50%, 75%, 100%) to adjust field width</li>
+                  <li>Fields smaller than 100% will automatically arrange side-by-side in rows</li>
+                  <li>Drag fields between existing fields to reposition them</li>
+                  <li>Blue drop zones appear when dragging to show where fields will be placed</li>
+                </ul>
+              </div>
+            )}
             {activeView === 'builder' && (
               <FormCanvas
                 fields={fields}

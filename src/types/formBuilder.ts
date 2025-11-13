@@ -35,6 +35,8 @@ export interface FormField {
   required: boolean;
   config: any;
   size?: FieldSize;
+  row?: number;
+  column?: number;
   isContainer?: boolean;
   children?: FormField[];
   visibility?: {
@@ -45,6 +47,9 @@ export interface FormField {
     enabled: boolean;
     condition?: Condition;
   };
+  panelState?: 'normal' | 'minimized' | 'maximized';
+  panelWidth?: string;
+  panelHeight?: string;
 }
 
 export const FIELD_TYPES: FieldType[] = [
@@ -117,6 +122,34 @@ export const FIELD_TYPES: FieldType[] = [
     },
   },
   {
+    id: 'radio',
+    label: 'Radio Group',
+    type: 'string',
+    icon: 'Circle',
+    category: 'Molecules',
+    defaultConfig: {
+      type: 'string',
+      title: 'Radio Group',
+      enum: ['Option 1', 'Option 2', 'Option 3'],
+    },
+  },
+  {
+    id: 'multiCheckbox',
+    label: 'Multi-select Checkbox',
+    type: 'array',
+    icon: 'CheckSquare',
+    category: 'Molecules',
+    defaultConfig: {
+      type: 'array',
+      title: 'Multi-select Checkbox',
+      items: {
+        type: 'string',
+        enum: ['Option 1', 'Option 2', 'Option 3'],
+      },
+      uniqueItems: true,
+    },
+  },
+  {
     id: 'date',
     label: 'Date',
     type: 'string',
@@ -154,6 +187,18 @@ export const FIELD_TYPES: FieldType[] = [
     },
   },
   {
+    id: 'signature',
+    label: 'Signature',
+    type: 'string',
+    icon: 'PenTool',
+    category: 'Molecules',
+    defaultConfig: {
+      type: 'string',
+      format: 'signature',
+      title: 'Signature',
+    },
+  },
+  {
     id: 'table',
     label: 'Table',
     type: 'array',
@@ -175,6 +220,63 @@ export const FIELD_TYPES: FieldType[] = [
 ];
 
 export const WIDGET_TYPES: FieldType[] = [
+  {
+    id: 'nav',
+    label: 'Navigation',
+    type: 'navigation',
+    icon: 'Menu',
+    category: 'Atoms',
+    defaultConfig: {
+      type: 'navigation',
+      title: 'Navigation',
+      items: [
+        { label: 'Home', url: '#', active: true },
+        { label: 'About', url: '#', active: false },
+        { label: 'Services', url: '#', active: false },
+        { label: 'Contact', url: '#', active: false },
+      ],
+      variant: 'horizontal',
+    },
+  },
+  {
+    id: 'header',
+    label: 'Header',
+    type: 'text',
+    icon: 'Heading1',
+    category: 'Atoms',
+    defaultConfig: {
+      type: 'text',
+      title: 'Header Text',
+      textType: 'header',
+      content: 'This is a header',
+    },
+  },
+  {
+    id: 'subheader',
+    label: 'Subheader',
+    type: 'text',
+    icon: 'Heading2',
+    category: 'Atoms',
+    defaultConfig: {
+      type: 'text',
+      title: 'Subheader Text',
+      textType: 'subheader',
+      content: 'This is a subheader',
+    },
+  },
+  {
+    id: 'paragraph',
+    label: 'Paragraph',
+    type: 'text',
+    icon: 'Type',
+    category: 'Atoms',
+    defaultConfig: {
+      type: 'text',
+      title: 'Paragraph Text',
+      textType: 'paragraph',
+      content: 'This is a paragraph of text. You can use this to add descriptive content to your form.',
+    },
+  },
   {
     id: 'alert',
     label: 'Alert',
@@ -306,6 +408,20 @@ export const WIDGET_TYPES: FieldType[] = [
     defaultConfig: {
       type: 'container',
       title: 'Tabs',
+    },
+  },
+  {
+    id: 'panel',
+    label: 'Panel',
+    type: 'panel',
+    icon: 'PanelTop',
+    category: 'Organisms',
+    defaultConfig: {
+      type: 'panel',
+      title: 'Panel',
+      resizable: true,
+      collapsible: true,
+      initialState: 'normal',
     },
   },
 ];

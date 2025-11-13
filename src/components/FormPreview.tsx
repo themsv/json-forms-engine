@@ -3,6 +3,9 @@ import { JsonForms } from '@jsonforms/react';
 import { materialRenderers, materialCells } from '@jsonforms/material-renderers';
 import FileUploadRenderer, { fileUploadControlTester } from './FileUploadRenderer';
 import ChartRenderer, { chartControlTester } from './ChartRenderer';
+import TextDisplayRenderer, { textDisplayControlTester } from './TextDisplayRenderer';
+import NavRenderer, { navControlTester } from './NavRenderer';
+import SignatureControl, { signatureControlTester } from './SignatureControl';
 
 interface FormPreviewProps {
   schema: any;
@@ -16,6 +19,9 @@ export default function FormPreview({ schema, uiSchema }: FormPreviewProps) {
     ...materialRenderers,
     { tester: fileUploadControlTester, renderer: FileUploadRenderer },
     { tester: chartControlTester, renderer: ChartRenderer },
+    { tester: textDisplayControlTester, renderer: TextDisplayRenderer },
+    { tester: navControlTester, renderer: NavRenderer },
+    { tester: signatureControlTester, renderer: SignatureControl },
   ];
 
   return (
